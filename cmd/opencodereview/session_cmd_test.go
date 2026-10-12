@@ -128,6 +128,21 @@ func TestRunSessionList_BranchFilterEmptyMessage(t *testing.T) {
 	}
 }
 
+func TestRunSessionList_BranchFilterJSONMissingSessionsDir(t *testing.T) {
+	tmpHome := t.TempDir()
+	setTestHome(t, tmpHome)
+	repoDir := t.TempDir()
+
+	got := captureStdout(t, func() {
+		if err := runSessionListCompat([]string{"--repo", repoDir, "--branch", "main", "--json"}); err != nil {
+			t.Fatalf("runSessionList: %v", err)
+		}
+	})
+	if strings.TrimSpace(got) != "[]" {
+		t.Fatalf("expected a non-nil empty JSON array, got %q", got)
+	}
+}
+
 func TestRunSessionShow_Text(t *testing.T) {
 	tmpHome := t.TempDir()
 	setTestHome(t, tmpHome)

@@ -279,7 +279,7 @@ func runSessionList() error {
 		return fmt.Errorf("list sessions: %w", err)
 	}
 	if sessionListBranch != "" {
-		filtered := summaries[:0]
+		filtered := make([]session.Summary, 0, len(summaries))
 		for _, summary := range summaries {
 			if summary.GitBranch == sessionListBranch {
 				filtered = append(filtered, summary)
