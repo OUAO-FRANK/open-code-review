@@ -92,10 +92,10 @@ func TestRunSessionList_BranchFilterBeforeLimit(t *testing.T) {
 	setTestHome(t, tmpHome)
 	repoDir := t.TempDir()
 
-	old := session.New(repoDir, "main", "test-model", session.SessionOptions{})
+	old := session.New(repoDir, "feature", "test-model", session.SessionOptions{})
 	old.RecordReviewItemDone("old.go", "old.go", "old.go", "fp-old", nil)
 	old.Finalize()
-	newer := session.New(repoDir, "feature", "test-model", session.SessionOptions{})
+	newer := session.New(repoDir, "main", "test-model", session.SessionOptions{})
 	newer.RecordReviewItemDone("new.go", "new.go", "new.go", "fp-new", nil)
 	newer.Finalize()
 
