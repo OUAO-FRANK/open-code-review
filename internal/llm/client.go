@@ -324,10 +324,11 @@ type ResponseMessage struct {
 
 // ChatResponse is the parsed result of a completion request.
 type ChatResponse struct {
-	ID      string     `json:"-"`
-	Model   string     `json:"-"`
-	Choices []Choice   `json:"-"`
-	Usage   *UsageInfo `json:"-"` // Token usage extracted from API response
+	ID       string          `json:"-"`
+	Model    string          `json:"-"`
+	Choices  []Choice        `json:"-"`
+	Usage    *UsageInfo      `json:"-"` // Token usage extracted from API response
+	RawUsage json.RawMessage `json:"-"`
 }
 
 // Content extracts the text content from the first choice, falling back to reasoning content.
@@ -408,6 +409,10 @@ type ClientConfig struct {
 	// PromptCaching controls Anthropic cache_control breakpoints. Nil preserves
 	// the historical default of enabling prompt caching.
 	PromptCaching *bool
+	RequiresStreaming     bool
+	RejectsSamplingParams bool
+	ChatGPTPlan           bool
+	ChatGPTAccount        string
 	// SessionKey is the fallback prompt-cache affinity key
 	// for requests whose context carries none (see ContextWithSessionKey).
 	//
@@ -496,6 +501,14 @@ func NewLLMClient(ep ResolvedEndpoint, collector *RetryCollector, raw *RawHolder
 		rawHolder:      raw,
 		AWSProfile:     ep.AWSProfile,
 		AWSRegion:      ep.AWSRegion,
+		RequiresStreaming:     ep.RequiresStreaming,
+		RejectsSamplingParams: ep.RejectsSamplingParams,
+		ChatGPTPlan:           ep.ChatGPTPlan,
+		ChatGPTAccount:        ep.ChatGPTAccount,
+		retryCollector:        collector,
+		rawHolder:             raw,
+		AWSProfile:            ep.AWSProfile,
+		AWSRegion:             ep.AWSRegion,
 	}
 	switch ep.Protocol {
 	case ProtocolAnthropic:

@@ -4,6 +4,7 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -36,6 +37,10 @@ type ResolvedEndpoint struct {
 	// PromptCaching controls Anthropic cache_control breakpoints. Nil preserves
 	// the historical default of enabling prompt caching.
 	PromptCaching *bool
+	RequiresStreaming     bool
+	RejectsSamplingParams bool
+	ChatGPTPlan           bool
+	ChatGPTAccount        string
 
 	// AmbientAuth marks an endpoint that carries no token and needs no base
 	// URL, because the transport supplies both — AWS SigV4 signing derives the
@@ -81,6 +86,7 @@ const (
 type ResolveOptions struct {
 	Provider string
 	Model    string
+	Context  context.Context
 }
 
 // ResolveEndpoint resolves an endpoint without per-run overrides.
@@ -184,7 +190,9 @@ func finalizeResolvedEndpoint(source string, ep ResolvedEndpoint, env envOverrid
 	if ep.Source == "" {
 		ep.Source = source
 	}
-	ep.Model = stripModelSuffix(ep.Model)
+	if !ep.ChatGPTPlan {
+		ep.Model = stripModelSuffix(ep.Model)
+	}
 	if env.hasTimeout {
 		ep.Timeout = env.timeout
 	}
@@ -393,14 +401,14 @@ func tryOCRConfig(path string, opts ResolveOptions) (ResolvedEndpoint, bool, err
 		cfg.Provider = opts.Provider
 	}
 	if cfg.Provider != "" {
-		return tryProviderConfig(cfg, opts.Model)
+		return tryProviderConfig(cfg, opts.Model, opts.Context)
 	}
 
 	return tryLegacyLlmConfig(cfg, opts.Model)
 }
 
 // tryProviderConfig resolves an endpoint from the provider-based configuration.
-func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, bool, error) {
+func tryProviderConfig(cfg configFile, modelOverride string, callerContext context.Context) (ResolvedEndpoint, bool, error) {
 	preset, isPreset := LookupProvider(cfg.Provider)
 
 	var entry providerEntryConfig
@@ -409,6 +417,9 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 		entry, ok = cfg.Providers[cfg.Provider]
 	} else {
 		entry, ok = cfg.CustomProviders[cfg.Provider]
+	}
+	if isPreset && preset.Name == "chatgpt" && ok {
+		return resolveChatGPT(cfg, entry, modelOverride, callerContext)
 	}
 	if !ok {
 		section := "providers"
