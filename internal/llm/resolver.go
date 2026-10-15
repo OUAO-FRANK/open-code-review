@@ -36,7 +36,7 @@ type ResolvedEndpoint struct {
 	RetryCodes []int // additional HTTP status codes that trigger exponential-backoff retry
 	// PromptCaching controls Anthropic cache_control breakpoints. Nil preserves
 	// the historical default of enabling prompt caching.
-	PromptCaching *bool
+	PromptCaching         *bool
 	RequiresStreaming     bool
 	RejectsSamplingParams bool
 	ChatGPTPlan           bool
