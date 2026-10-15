@@ -408,7 +408,7 @@ type ClientConfig struct {
 	RetryCodes   []int             // Additional HTTP status codes that trigger retry
 	// PromptCaching controls Anthropic cache_control breakpoints. Nil preserves
 	// the historical default of enabling prompt caching.
-	PromptCaching *bool
+	PromptCaching         *bool
 	RequiresStreaming     bool
 	RejectsSamplingParams bool
 	ChatGPTPlan           bool
@@ -488,27 +488,23 @@ func retryCodesMiddleware(codes []int) func(*http.Request, func(*http.Request) (
 // parameters rather than fields on ResolvedEndpoint.
 func NewLLMClient(ep ResolvedEndpoint, collector *RetryCollector, raw *RawHolder) LLMClient {
 	cfg := ClientConfig{
-		URL:            ep.URL,
-		APIKey:         ep.Token,
-		Model:          ep.Model,
-		AuthHeader:     ep.AuthHeader,
-		Timeout:        ep.Timeout,
-		ExtraBody:      ep.ExtraBody,
-		ExtraHeaders:   ep.ExtraHeaders,
-		RetryCodes:     ep.RetryCodes,
-		PromptCaching:  ep.PromptCaching,
-		retryCollector: collector,
-		rawHolder:      raw,
-		AWSProfile:     ep.AWSProfile,
-		AWSRegion:      ep.AWSRegion,
-		RequiresStreaming:     ep.RequiresStreaming,
-		RejectsSamplingParams: ep.RejectsSamplingParams,
-		ChatGPTPlan:           ep.ChatGPTPlan,
-		ChatGPTAccount:        ep.ChatGPTAccount,
+		URL:                   ep.URL,
+		APIKey:                ep.Token,
+		Model:                 ep.Model,
+		AuthHeader:            ep.AuthHeader,
+		Timeout:               ep.Timeout,
+		ExtraBody:             ep.ExtraBody,
+		ExtraHeaders:          ep.ExtraHeaders,
+		RetryCodes:            ep.RetryCodes,
+		PromptCaching:         ep.PromptCaching,
 		retryCollector:        collector,
 		rawHolder:             raw,
 		AWSProfile:            ep.AWSProfile,
 		AWSRegion:             ep.AWSRegion,
+		RequiresStreaming:     ep.RequiresStreaming,
+		RejectsSamplingParams: ep.RejectsSamplingParams,
+		ChatGPTPlan:           ep.ChatGPTPlan,
+		ChatGPTAccount:        ep.ChatGPTAccount,
 	}
 	switch ep.Protocol {
 	case ProtocolAnthropic:
