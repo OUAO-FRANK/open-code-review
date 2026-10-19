@@ -142,6 +142,7 @@ func TestRunSessionList_BranchFilterJSONMissingSessionsDir(t *testing.T) {
 		t.Fatalf("expected a non-nil empty JSON array, got %q", got)
 	}
 }
+
 func TestRunSessionShow_Text(t *testing.T) {
 	tmpHome := t.TempDir()
 	setTestHome(t, tmpHome)
