@@ -495,7 +495,7 @@ func (a *Agent) FileGroups() []FileGroupInfo {
 	for i, g := range a.fileGroups {
 		files := make([]string, len(g.Diffs))
 		for j, d := range g.Diffs {
-			files[j] = d.NewPath
+			files[j] = effectivePath(d)
 		}
 		result[i] = FileGroupInfo{Label: g.Label, Files: files}
 	}
@@ -740,7 +740,7 @@ dispatchLoop:
 					for _, d := range g.Diffs {
 						fingerprint := reviewItemFingerprint(a.reviewMode(), d)
 						a.markFailed(d, session.FailurePanic, "subtask panicked during review")
-						a.session.RecordReviewItemFailed(d.NewPath, d.OldPath, d.NewPath, fingerprint, fmt.Sprintf("panic: %v", r))
+						a.session.RecordReviewItemFailed(effectivePath(d), d.OldPath, d.NewPath, fingerprint, fmt.Sprintf("panic: %v", r))
 					}
 					fmt.Fprintf(stdout.Writer(), "[ocr] Subtask panic for group %q: %v\n%s\n", g.Label, r, debug.Stack())
 					telemetry.ErrorEvent(ctx, "subtask.panic", fmt.Errorf("panic: %v", r),
@@ -765,7 +765,7 @@ dispatchLoop:
 				for _, d := range g.Diffs {
 					fingerprint := reviewItemFingerprint(a.reviewMode(), d)
 					a.markFailed(d, class, reason)
-					a.session.RecordReviewItemFailed(d.NewPath, d.OldPath, d.NewPath, fingerprint, err.Error())
+					a.session.RecordReviewItemFailed(effectivePath(d), d.OldPath, d.NewPath, fingerprint, err.Error())
 				}
 				fmt.Fprintf(stdout.Writer(), "[ocr] Subtask error for group %q: %v\n", g.Label, err)
 				telemetry.ErrorEvent(groupCtx, "subtask.error", err,
@@ -785,14 +785,14 @@ dispatchLoop:
 					var failedCount int64
 					for _, d := range g.Diffs {
 						fingerprint := reviewItemFingerprint(a.reviewMode(), d)
-						if comments := a.args.CommentCollector.CommentsForPath(d.NewPath); len(comments) > 0 {
+						if comments := a.args.CommentCollector.CommentsForPath(effectivePath(d)); len(comments) > 0 {
 							a.markCompleted(d)
-							a.session.RecordReviewItemDone(d.NewPath, d.OldPath, d.NewPath, fingerprint, comments)
+							a.session.RecordReviewItemDone(effectivePath(d), d.OldPath, d.NewPath, fingerprint, comments)
 							continue
 						}
 						a.markFailed(d, stop.class, stop.reason)
 						if stop.checkpoint != "" {
-							a.session.RecordReviewItemFailed(d.NewPath, d.OldPath, d.NewPath, fingerprint, stop.checkpoint)
+							a.session.RecordReviewItemFailed(effectivePath(d), d.OldPath, d.NewPath, fingerprint, stop.checkpoint)
 						}
 						failedCount++
 					}
@@ -814,9 +814,9 @@ dispatchLoop:
 			}
 			for _, d := range g.Diffs {
 				fingerprint := reviewItemFingerprint(a.reviewMode(), d)
-				comments := a.args.CommentCollector.CommentsForPath(d.NewPath)
+				comments := a.args.CommentCollector.CommentsForPath(effectivePath(d))
 				a.markCompleted(d)
-				a.session.RecordReviewItemDone(d.NewPath, d.OldPath, d.NewPath, fingerprint, comments)
+				a.session.RecordReviewItemDone(effectivePath(d), d.OldPath, d.NewPath, fingerprint, comments)
 			}
 		}(group)
 	}
@@ -1349,7 +1349,7 @@ func (a *Agent) checkPromptBudget(ctx context.Context, messages []llm.Message, g
 // groupHasComments reports whether any file in the group has comments.
 func (a *Agent) groupHasComments(g FileGroup) bool {
 	for _, d := range g.Diffs {
-		if len(a.args.CommentCollector.CommentsForPath(d.NewPath)) > 0 {
+		if len(a.args.CommentCollector.CommentsForPath(effectivePath(d))) > 0 {
 			return true
 		}
 	}
@@ -1439,7 +1439,7 @@ func (a *Agent) executeGroupSubtask(ctx context.Context, g FileGroup) (bool, *su
 	// Per-path baselines for concurrency-safe round-delta computation.
 	baseline := make(map[string]int, len(g.Diffs))
 	for _, d := range g.Diffs {
-		baseline[d.NewPath] = len(a.args.CommentCollector.CommentsForPath(d.NewPath))
+		baseline[effectivePath(d)] = len(a.args.CommentCollector.CommentsForPath(effectivePath(d)))
 	}
 
 	var (
@@ -1512,11 +1512,11 @@ func (a *Agent) executeGroupSubtask(ctx context.Context, g FileGroup) (bool, *su
 		// Compute newly confirmed comments from this round.
 		var newlyConfirmed []model.LlmComment
 		for _, d := range g.Diffs {
-			all := a.args.CommentCollector.CommentsForPath(d.NewPath)
-			if b := baseline[d.NewPath]; len(all) > b {
+			all := a.args.CommentCollector.CommentsForPath(effectivePath(d))
+			if b := baseline[effectivePath(d)]; len(all) > b {
 				newlyConfirmed = append(newlyConfirmed, all[b:]...)
 			}
-			baseline[d.NewPath] = len(all)
+			baseline[effectivePath(d)] = len(all)
 		}
 		confirmed = append(confirmed, newlyConfirmed...)
 
@@ -1617,7 +1617,7 @@ func buildConcatenatedDiffs(diffs []model.Diff) string {
 	var sb strings.Builder
 	for i, d := range diffs {
 		sb.WriteString("<file path=\"")
-		sb.WriteString(d.NewPath)
+		sb.WriteString(effectivePath(d))
 		sb.WriteString("\">\n")
 		sb.WriteString(d.Diff)
 		sb.WriteString("\n</file>")
@@ -1704,16 +1704,16 @@ func (a *Agent) resolveGroupSystemRule(diffs []model.Diff) string {
 	var blocks []ruleBlock
 	index := make(map[string]int, len(sorted))
 	for _, d := range sorted {
-		r := a.args.SystemRule.Resolve(d.NewPath)
+		r := a.args.SystemRule.Resolve(effectivePath(d))
 		if r == "" {
 			continue
 		}
 		if i, ok := index[r]; ok {
-			blocks[i].paths = append(blocks[i].paths, d.NewPath)
+			blocks[i].paths = append(blocks[i].paths, effectivePath(d))
 			continue
 		}
 		index[r] = len(blocks)
-		blocks = append(blocks, ruleBlock{rule: r, paths: []string{d.NewPath}})
+		blocks = append(blocks, ruleBlock{rule: r, paths: []string{effectivePath(d)}})
 	}
 
 	if len(blocks) == 0 {
@@ -1819,10 +1819,10 @@ func (a *Agent) executeGroupReviewFilter(ctx context.Context, g FileGroup, from 
 	}
 	var candidates []filterCandidate
 	for _, d := range g.Diffs {
-		all := a.args.CommentCollector.CommentsForPath(d.NewPath)
+		all := a.args.CommentCollector.CommentsForPath(effectivePath(d))
 		start := 0
 		if from != nil {
-			start = from[d.NewPath]
+			start = from[effectivePath(d)]
 			if start > len(all) {
 				start = len(all)
 			}
