@@ -374,14 +374,14 @@ func TestGitGrep_PerlRegexp_InvalidPattern_ReturnsError(t *testing.T) {
 	dir := setupTestRepo(t)
 	p := NewCodeSearch(&FileReader{RepoDir: dir, Ref: "", Mode: ModeWorkspace})
 	result, err := p.gitGrep(context.Background(), "(unclosed", false, true, nil)
-	if err == nil {
-		t.Fatal("expected invalid perl regexp to return an error")
+	if err != nil {
+		t.Fatalf("invalid perl regexp must return a model-facing message, not a fatal error: %v", err)
 	}
-	if result != "" {
-		t.Errorf("expected empty result for invalid perl regexp, got: %s", result)
+	if !strings.Contains(result, "invalid regular expression") {
+		t.Errorf("expected an invalid-regular-expression message, got: %s", result)
 	}
-	if !strings.Contains(err.Error(), "git grep failed") {
-		t.Errorf("expected git grep failure, got: %v", err)
+	if !strings.Contains(result, "missing closing parenthesis") {
+		t.Errorf("expected the regex diagnostic, got: %s", result)
 	}
 }
 

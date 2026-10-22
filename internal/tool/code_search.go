@@ -163,6 +163,12 @@ func (p *CodeSearchProvider) gitGrep(ctx context.Context, searchText string, cas
 		if errors.Is(err, context.Canceled) {
 			return "", err
 		}
+		if isPerlRegexpCompileError(err, errStr) {
+			// An invalid -P pattern is a user/model error, not a tool failure:
+			// surface it as a message the caller can inspect and correct instead
+			// of aborting the tool session.
+			return fmt.Sprintf("Error: invalid regular expression: %s", strings.TrimSpace(errStr)), nil
+		}
 		if outStr == "" {
 			var exitErr *exec.ExitError
 			exitCode := -1
@@ -270,4 +276,19 @@ func isNotGitRepoError(err error, stderr string) bool {
 		return true
 	}
 	return false
+}
+
+func isPerlRegexpCompileError(err error, stderr string) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 128 {
+		return false
+	}
+	// git surfaces a bad -P pattern differently across versions: older builds
+	// report "pcre2_compile failed: ...", newer ones "fatal: -e option, '...':
+	// missing closing parenthesis" (and its friends). Both are regex-compile
+	// failures, not repository/IO errors.
+	return strings.Contains(stderr, "pcre2_compile failed") ||
+		strings.Contains(stderr, "missing closing parenthesis") ||
+		strings.Contains(stderr, "missing terminating ]") ||
+		strings.Contains(stderr, "nothing to repeat")
 }
