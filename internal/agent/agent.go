@@ -1158,7 +1158,7 @@ func (a *Agent) markCompleted(d model.Diff) {
 		return
 	}
 	if err := b.MarkCompleted(a.manifestItemID(d)); err != nil {
-		a.recordWarning("manifest_error", d.NewPath, err.Error())
+		a.recordWarning("manifest_error", effectivePath(d), err.Error())
 	}
 }
 
@@ -1168,7 +1168,7 @@ func (a *Agent) markReused(d model.Diff) {
 		return
 	}
 	if err := b.MarkReused(a.manifestItemID(d)); err != nil {
-		a.recordWarning("manifest_error", d.NewPath, err.Error())
+		a.recordWarning("manifest_error", effectivePath(d), err.Error())
 	}
 }
 
@@ -1178,7 +1178,7 @@ func (a *Agent) markFailed(d model.Diff, class session.FailureClass, reason stri
 		return
 	}
 	if err := b.MarkFailed(a.manifestItemID(d), class, reason); err != nil {
-		a.recordWarning("manifest_error", d.NewPath, err.Error())
+		a.recordWarning("manifest_error", effectivePath(d), err.Error())
 	}
 }
 
@@ -1458,7 +1458,7 @@ func (a *Agent) executeGroupSubtask(ctx context.Context, g FileGroup) (bool, *su
 			// A group can finish a round over budget with no other gate noticing,
 			// so record it here too or the run would report the budget as intact.
 			if a.budgetExceeded.CompareAndSwap(false, true) {
-				a.recordWarning("token_budget_reached", g.Diffs[0].NewPath,
+				a.recordWarning("token_budget_reached", effectivePath(g.Diffs[0]),
 					fmt.Sprintf("skipped round %d of group %q: used %d tokens exceeds budget %d", round, groupKey, a.runner.TotalTokensUsed(), a.args.MaxTokensBudget))
 			}
 			break
@@ -1526,7 +1526,7 @@ func (a *Agent) executeGroupSubtask(ctx context.Context, g FileGroup) (bool, *su
 				// it the same way the dispatch gate does, so BudgetExceeded() and the
 				// warning list agree with the item's failed(budget) classification.
 				if a.budgetExceeded.CompareAndSwap(false, true) {
-					a.recordWarning("token_budget_reached", g.Diffs[0].NewPath,
+					a.recordWarning("token_budget_reached", effectivePath(g.Diffs[0]),
 						fmt.Sprintf("stopped group %q mid-review: used %d tokens exceeds budget %d", groupKey, a.runner.TotalTokensUsed(), a.args.MaxTokensBudget))
 				}
 			}
@@ -1694,7 +1694,7 @@ func (a *Agent) resolveGroupSystemRule(diffs []model.Diff) string {
 	// provider caches reuse. Clone first: the caller's slice is shared state.
 	sorted := slices.Clone(diffs)
 	slices.SortStableFunc(sorted, func(x, y model.Diff) int {
-		return strings.Compare(x.NewPath, y.NewPath)
+		return strings.Compare(effectivePath(x), effectivePath(y))
 	})
 
 	type ruleBlock struct {
@@ -2030,7 +2030,7 @@ func (a *Agent) logExclusions(decisions []fileDecision) {
 			continue
 		}
 		fmt.Fprintf(stdout.Writer(), "[ocr] Skipping %s (~%d tokens exceeds 80%% of max_tokens(%d))\n",
-			dec.Diff.NewPath, dec.DiffTokens, a.args.Template.MaxTokens)
+			effectivePath(dec.Diff), dec.DiffTokens, a.args.Template.MaxTokens)
 		tooLarge++
 	}
 	if tooLarge > 0 {
