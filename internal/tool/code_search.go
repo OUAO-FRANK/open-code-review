@@ -283,12 +283,11 @@ func isPerlRegexpCompileError(err error, stderr string) bool {
 	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 128 {
 		return false
 	}
-	// git surfaces a bad -P pattern differently across versions: older builds
-	// report "pcre2_compile failed: ...", newer ones "fatal: -e option, '...':
-	// missing closing parenthesis" (and its friends). Both are regex-compile
-	// failures, not repository/IO errors.
+	// Detect the stable structure of a failed -P pattern compile rather than
+	// enumerating PCRE diagnostics. Newer git reports "fatal: -e option,
+	// '<pattern>': ..."; older builds "fatal: pcre2_compile failed: ...". Both
+	// identify the pattern argument itself as the failure, not a repository or
+	// I/O error.
 	return strings.Contains(stderr, "pcre2_compile failed") ||
-		strings.Contains(stderr, "missing closing parenthesis") ||
-		strings.Contains(stderr, "missing terminating ]") ||
-		strings.Contains(stderr, "nothing to repeat")
+		strings.Contains(stderr, "-e option")
 }
